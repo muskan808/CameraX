@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ContentValues
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
@@ -15,10 +16,7 @@ import android.provider.MediaStore
 import android.util.Log
 import android.view.View
 import android.view.WindowManager
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -63,7 +61,6 @@ class MainActivity : AppCompatActivity() {
                         or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                 )
         super.onResume()
-      //  window.decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN);
 
         // Request camera permissions
         if (allPermissionsGranted()) {
@@ -95,11 +92,9 @@ class MainActivity : AppCompatActivity() {
 
             // Set back camera as a default
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
             try {
                 // Unbind use case before rebinding
                 cameraProvider.unbindAll()
-
                 // Bind use cases to camera
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture)
             } catch (exc: Exception) {
@@ -135,9 +130,9 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                    val msg = "Photo capture succeeded: ${outputFileResults.savedUri}"
-                    Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
-                    Log.d(TAG, msg)
+                   // val msg = "Photo capture succeeded: ${outputFileResults.savedUri}"
+                   // Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
+                   // Log.d(TAG, msg)
 
                     viewBinding.imageView.setImageURI(outputFileResults.savedUri)
                     viewBinding.imageView.visibility = View.VISIBLE
@@ -146,8 +141,8 @@ class MainActivity : AppCompatActivity() {
             }
         )
     }
-
     private fun recognizeTextFromImage(imageUri: Uri) {
+        textView.text = ""
         // Load the image from the given URI into a Bitmap object
         val inputStream = contentResolver.openInputStream(imageUri)
         val bitmap = BitmapFactory.decodeStream(inputStream)
@@ -165,12 +160,63 @@ class MainActivity : AppCompatActivity() {
             // Task completed successfully
             val text = visionText.text.replace(" ", "")
             Log.d(TAG, "Recognized text: $text")
+
+            if (text.isEmpty()) {
+                // Show a message if no text is recognized
+                Toast.makeText(this, "No vehicle number is recognized", Toast.LENGTH_SHORT).show()
+                return@addOnSuccessListener
+            }
+
             // Extract ANPR number from the text
+            val linearLayout = findViewById<LinearLayout>(R.id.LinearLayout)
+            val textList = text.split("\n")
             val pattern = "[A-Z]{2}\\d{0,2}[A-Z]{0,2}\\d{0,4}".toRegex()
-            val matchResult = pattern.find(text.toString())
-            val anprNumber = matchResult?.value ?: "ANPR number not found"
-            textView.text = "Recognized ANPR number: $anprNumber"
-            textView.visibility = View.VISIBLE
+
+            for (line in textList) {
+
+                // Check if the the last 4 Digits are numbers
+                if (pattern.matches(line)) {
+                    // Create a new LinearLayout to hold the TextView and Button for the line
+                    val lineLayout = LinearLayout(this)
+                    lineLayout.orientation = LinearLayout.HORIZONTAL
+                    lineLayout.layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                    // Create a new TextView for the line of text
+                    val textView = TextView(this)
+                    val heading = "Recognized Text:\n"
+                    textView.text = heading+line
+                    textView.setTextColor(Color.MAGENTA)
+                    textView.layoutParams = LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1f
+                    )
+
+                    // Create a new Button for copying the line to the clipboard
+                    val copyButton = ImageButton(this)
+                    copyButton.setImageResource(R.drawable.ic_copy) // replace with your own icon
+                    copyButton.background = null
+                    copyButton.layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                    copyButton.setOnClickListener {
+                        val clipboardManager =
+                            getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                        val clipData = ClipData.newPlainText("text", line)
+                        clipboardManager.setPrimaryClip(clipData)
+                        Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT)
+                            .show()
+                    }
+                    // Add the TextView and Button to the LinearLayout for the line
+                    lineLayout.addView(textView)
+                    lineLayout.addView(copyButton)
+                    // Add the LinearLayout for the line to the overall layout
+                    linearLayout.addView(lineLayout)
+                }
+            }
         }
             .addOnFailureListener { e ->
                 // Task failed with an exception
