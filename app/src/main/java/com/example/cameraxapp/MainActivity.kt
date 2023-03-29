@@ -1,35 +1,34 @@
-package com.example.cameraxapp
+package com.example.textrecognizer
 
 import android.Manifest
-import android.app.ProgressDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ContentValues
 import android.content.pm.PackageManager
-import android.content.res.ColorStateList
 import android.graphics.BitmapFactory
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
 import android.provider.MediaStore
 import android.util.Log
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.AnimationUtils
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.camera.core.*
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.example.cameraxapp.databinding.ActivityMainBinding
+import com.example.textrecognizer.databinding.ActivityMainBinding
 import com.google.android.gms.tasks.Task
-import com.google.android.gms.vision.Frame
-import com.google.android.gms.vision.text.TextRecognizer
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
@@ -46,9 +45,9 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         viewBinding = ActivityMainBinding.inflate(layoutInflater)
-
         setContentView(viewBinding.root)
-            title = ""
+
+        title = ""
         supportActionBar?.hide()
 
         window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -130,9 +129,6 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                   // val msg = "Photo capture succeeded: ${outputFileResults.savedUri}"
-                   // Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
-                   // Log.d(TAG, msg)
 
                     viewBinding.imageView.setImageURI(outputFileResults.savedUri)
                     viewBinding.imageView.visibility = View.VISIBLE
@@ -141,6 +137,7 @@ class MainActivity : AppCompatActivity() {
             }
         )
     }
+
     private fun recognizeTextFromImage(imageUri: Uri) {
         textView.text = ""
         // Load the image from the given URI into a Bitmap object
@@ -152,7 +149,7 @@ class MainActivity : AppCompatActivity() {
         val inputImage = InputImage.fromBitmap(bitmap, 0)
 
         // Set up TextRecognition
-        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+        val recognizer = TextRecognition.getClient()
 
         // Run text recognition on the InputImage
         val result: Task<Text> = recognizer.process(inputImage)
@@ -170,7 +167,7 @@ class MainActivity : AppCompatActivity() {
             // Extract ANPR number from the text
             val linearLayout = findViewById<LinearLayout>(R.id.LinearLayout)
             val textList = text.split("\n")
-            val pattern = "[A-Z]{2}\\d{0,2}[A-Z]{0,2}\\d{0,4}".toRegex()
+            val pattern = "[A-Z]{2}\\d{0,3}[A-Z]{0,3}\\d{0,4}".toRegex()
 
             for (line in textList) {
 
@@ -185,8 +182,7 @@ class MainActivity : AppCompatActivity() {
                     )
                     // Create a new TextView for the line of text
                     val textView = TextView(this)
-                    val heading = "Recognized Text:\n"
-                    textView.text = heading+line
+                    textView.text = line
                     textView.setTextColor(Color.MAGENTA)
                     textView.layoutParams = LinearLayout.LayoutParams(
                         0,
@@ -196,7 +192,7 @@ class MainActivity : AppCompatActivity() {
 
                     // Create a new Button for copying the line to the clipboard
                     val copyButton = ImageButton(this)
-                    copyButton.setImageResource(R.drawable.ic_copy) // replace with your own icon
+                   copyButton.setImageResource(R.drawable.ic_copy) // replace with your own icon
                     copyButton.background = null
                     copyButton.layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
